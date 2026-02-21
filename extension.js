@@ -1,19 +1,32 @@
-const vscode = require('vscode');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const https = require('https');
+const vscode = require("vscode");
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
+const https = require("https");
 
 const panels = new Map();
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'vscode-mermaid-k8s-preview' } }, (res) => {
-      if (res.statusCode === 301 || res.statusCode === 302) return fetchJson(res.headers.location).then(resolve).catch(reject);
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
-    }).on('error', reject);
+    https
+      .get(
+        url,
+        { headers: { "User-Agent": "vscode-mermaid-k8s-preview" } },
+        (res) => {
+          if (res.statusCode === 301 || res.statusCode === 302)
+            return fetchJson(res.headers.location).then(resolve).catch(reject);
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        },
+      )
+      .on("error", reject);
   });
 }
 
@@ -22,15 +35,20 @@ async function loadIconPacks(iconPacks, workspaceFolder) {
   for (const pack of iconPacks) {
     try {
       let icons;
-      if (pack.url.startsWith('http://') || pack.url.startsWith('https://')) {
+      if (pack.url.startsWith("http://") || pack.url.startsWith("https://")) {
         icons = await fetchJson(pack.url);
       } else {
-        const absPath = pack.url.replace('${workspaceFolder}', workspaceFolder || '');
-        icons = JSON.parse(fs.readFileSync(absPath, 'utf8'));
+        const absPath = pack.url.replace(
+          "${workspaceFolder}",
+          workspaceFolder || "",
+        );
+        icons = JSON.parse(fs.readFileSync(absPath, "utf8"));
       }
       loaded.push({ name: pack.name, icons });
     } catch (e) {
-      vscode.window.showWarningMessage(`Mermaid Preview: Could not load icon pack "${pack.name}": ${e.message}`);
+      vscode.window.showWarningMessage(
+        `Mermaid Preview: Could not load icon pack "${pack.name}": ${e.message}`,
+      );
     }
   }
   return loaded;
@@ -38,31 +56,35 @@ async function loadIconPacks(iconPacks, workspaceFolder) {
 
 function activate(context) {
   context.subscriptions.push(
-    vscode.commands.registerCommand('mermaidK8s.openPreview', () => {
+    vscode.commands.registerCommand("mermaidK8s.openPreview", () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
       if (!editor.document.fileName.match(/\.(mmd|mermaid)$/)) {
-        vscode.window.showWarningMessage('Open a .mmd file first.');
+        vscode.window.showWarningMessage("Open a .mmd file first.");
         return;
       }
       openPreview(context, editor.document);
-    })
+    }),
   );
 
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(editor => {
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (editor && editor.document.fileName.match(/\.(mmd|mermaid)$/)) {
         openPreview(context, editor.document);
       }
-    })
+    }),
   );
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument(e => {
+    vscode.workspace.onDidChangeTextDocument((e) => {
       if (!e.document.fileName.match(/\.(mmd|mermaid)$/)) return;
       const panel = panels.get(e.document.uri.fsPath);
-      if (panel) panel.webview.postMessage({ type: 'update', content: e.document.getText() });
-    })
+      if (panel)
+        panel.webview.postMessage({
+          type: "update",
+          content: e.document.getText(),
+        });
+    }),
   );
 }
 
@@ -75,16 +97,27 @@ async function openPreview(context, doc) {
     return;
   }
 
-  const config = vscode.workspace.getConfiguration('mermaidK8sPreview');
-  const iconPacksConfig = config.get('iconPacks', []);
-  const theme = config.get('theme', 'dark');
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+  const config = vscode.workspace.getConfiguration("mermaidK8sPreview");
+  const iconPacksConfig = config.get("iconPacks", []);
+  const theme = config.get("theme", "dark");
+  const workspaceFolder =
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+  const extensionDir = context.extensionPath;
+
+  // Preload default icon packs (aws and k8s) from extension directory
+  const defaultPacks = [
+    { name: "aws", url: path.join(extensionDir, "aws-icons.json") },
+    { name: "k8s", url: path.join(extensionDir, "k8s.json") },
+  ];
+
+  // Combine: settings packs come first (on top), then defaults
+  const allIconPacks = [...iconPacksConfig, ...defaultPacks];
 
   const panel = vscode.window.createWebviewPanel(
-    'mermaidK8sPreview',
+    "mermaidK8sPreview",
     `⬡ ${fileName}`,
     vscode.ViewColumn.Beside,
-    { enableScripts: true, retainContextWhenHidden: true }
+    { enableScripts: true, retainContextWhenHidden: true },
   );
 
   panel.webview.html = getWebviewContent(theme);
@@ -92,16 +125,16 @@ async function openPreview(context, doc) {
   panel.onDidDispose(() => panels.delete(filePath));
 
   vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: 'Loading icon packs…' },
+    { location: vscode.ProgressLocation.Window, title: "Loading icon packs…" },
     async () => {
-      const loadedPacks = await loadIconPacks(iconPacksConfig, workspaceFolder);
+      const loadedPacks = await loadIconPacks(allIconPacks, workspaceFolder);
       panel.webview.postMessage({
-        type: 'init',
+        type: "init",
         content: doc.getText(),
         iconPacks: loadedPacks,
-        theme
+        theme,
       });
-    }
+    },
   );
 }
 
@@ -283,5 +316,7 @@ function getWebviewContent(theme) {
 </html>`;
 }
 
-function deactivate() { panels.clear(); }
+function deactivate() {
+  panels.clear();
+}
 module.exports = { activate, deactivate };
