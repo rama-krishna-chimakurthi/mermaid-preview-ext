@@ -116,6 +116,10 @@ async function openPreview(context, doc) {
       name: "k8s",
       url: "https://unpkg.com/@rama_krishna/k8s-icons/icons.json",
     },
+    {
+      name: "logos",
+      url: "https://unpkg.com/@iconify-json/logos@1/icons.json",
+    },
   ];
 
   // Combine: settings packs come first (on top), then defaults
