@@ -9,15 +9,10 @@ const panels = new Map();
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     https.get(url, { headers: { 'User-Agent': 'vscode-mermaid-k8s-preview' } }, (res) => {
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        return fetchJson(res.headers.location).then(resolve).catch(reject);
-      }
+      if (res.statusCode === 301 || res.statusCode === 302) return fetchJson(res.headers.location).then(resolve).catch(reject);
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error('Failed to parse JSON from ' + url)); }
-      });
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
     }).on('error', reject);
   });
 }
@@ -34,9 +29,8 @@ async function loadIconPacks(iconPacks, workspaceFolder) {
         icons = JSON.parse(fs.readFileSync(absPath, 'utf8'));
       }
       loaded.push({ name: pack.name, icons });
-      console.log(`[Mermaid K8s] Loaded icon pack: ${pack.name}`);
     } catch (e) {
-      console.error(`[Mermaid K8s] Failed to load pack "${pack.name}": ${e.message}`);
+      vscode.window.showWarningMessage(`Mermaid Preview: Could not load icon pack "${pack.name}": ${e.message}`);
     }
   }
   return loaded;
@@ -67,9 +61,7 @@ function activate(context) {
     vscode.workspace.onDidChangeTextDocument(e => {
       if (!e.document.fileName.match(/\.(mmd|mermaid)$/)) return;
       const panel = panels.get(e.document.uri.fsPath);
-      if (panel) {
-        panel.webview.postMessage({ type: 'update', content: e.document.getText() });
-      }
+      if (panel) panel.webview.postMessage({ type: 'update', content: e.document.getText() });
     })
   );
 }
@@ -99,12 +91,10 @@ async function openPreview(context, doc) {
   panels.set(filePath, panel);
   panel.onDidDispose(() => panels.delete(filePath));
 
-  // Load icon packs in Node.js (full network access) then send to webview
   vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window, title: 'Loading icon packs…' },
     async () => {
       const loadedPacks = await loadIconPacks(iconPacksConfig, workspaceFolder);
-      // Send icon packs + initial content to webview
       panel.webview.postMessage({
         type: 'init',
         content: doc.getText(),
@@ -142,90 +132,62 @@ function getWebviewContent(theme) {
       background: #252526;
       border-bottom: 1px solid #333;
       flex-shrink: 0;
+      user-select: none;
     }
-    #toolbar .label {
-      font-size: 11px;
-      color: #858585;
-      margin-right: auto;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .btn {
-      background: #3c3c3c;
-      border: 1px solid #555;
-      color: #ccc;
-      padding: 3px 10px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 12px;
-    }
+    #toolbar .label { font-size: 11px; color: #858585; margin-right: auto; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn { background: #3c3c3c; border: 1px solid #555; color: #ccc; padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
     .btn:hover { background: #4a4a4a; color: #fff; }
-    #status { font-size: 11px; padding: 2px 8px; border-radius: 3px; }
+    #status { font-size: 11px; padding: 2px 8px; border-radius: 3px; white-space: nowrap; max-width: 400px; overflow: hidden; text-overflow: ellipsis; }
     #status.loading { color: #858585; }
     #status.ok { color: #4ec9b0; }
     #status.error { color: #f44747; }
-    #canvas {
-      flex: 1;
-      overflow: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-    #wrapper { transform-origin: center center; transition: transform 0.1s; }
-    #wrapper svg { max-width: 100%; height: auto; }
-    #error-box {
+    #canvas { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 24px; }
+    #wrapper { transform-origin: top center; transition: transform 0.1s; }
+    #wrapper svg { max-width: 100%; height: auto; display: block; }
+    #error-panel {
       display: none;
-      background: #3c1f1f;
-      border: 1px solid #7a2020;
-      border-radius: 6px;
-      padding: 12px;
-      font-family: monospace;
+      margin-top: 16px;
+      background: #2a1f1f;
+      border-left: 3px solid #f44747;
+      border-radius: 4px;
+      padding: 12px 16px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
       font-size: 11px;
       color: #f48771;
-      max-width: 600px;
       white-space: pre-wrap;
-      margin-top: 12px;
+      word-break: break-word;
+      max-width: 700px;
     }
-    #loading {
-      color: #555;
-      font-size: 13px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-    }
-    .spinner {
-      width: 24px; height: 24px;
-      border: 2px solid #333;
-      border-top-color: #007acc;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
+    #error-panel .err-title { font-weight: bold; margin-bottom: 6px; color: #f44747; font-size: 12px; }
+    #loading { color: #555; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 80px; }
+    .spinner { width: 24px; height: 24px; border: 2px solid #333; border-top-color: #007acc; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 <div id="toolbar">
-  <span class="label">⬡ Mermaid Preview</span>
+  <span class="label">⬡ Mermaid K8s Preview</span>
   <span id="status" class="loading">Initializing…</span>
-  <button class="btn" onclick="zoom(-0.15)">－</button>
-  <button class="btn" onclick="zoom(0)">100%</button>
-  <button class="btn" onclick="zoom(0.15)">＋</button>
+  <button class="btn" onclick="zoom(-0.2)">－</button>
+  <button class="btn" onclick="zoom(0)">Reset</button>
+  <button class="btn" onclick="zoom(0.2)">＋</button>
   <button class="btn" onclick="dl()">↓ SVG</button>
 </div>
 <div id="canvas">
   <div id="loading"><div class="spinner"></div><span>Loading icon packs…</span></div>
   <div id="wrapper" style="display:none">
     <div id="diagram"></div>
-    <div id="error-box"></div>
+    <div id="error-panel">
+      <div class="err-title">⚠ Syntax Error</div>
+      <div id="error-text"></div>
+    </div>
   </div>
 </div>
 
 <script type="module">
   import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 
-  let scale = 1, count = 0, ready = false;
+  let scale = 1, count = 0, ready = false, lastGoodSvg = null;
 
   window.zoom = (d) => {
     scale = d === 0 ? 1 : Math.max(0.2, Math.min(4, scale + d));
@@ -241,49 +203,77 @@ function getWebviewContent(theme) {
     a.click();
   };
 
-  function status(type, text) {
+  function setStatus(type, text) {
     const el = document.getElementById('status');
-    el.className = type; el.textContent = text;
+    el.className = type;
+    el.textContent = text;
+    el.title = text;
   }
 
   async function render(content) {
-    if (!ready || !content.trim()) return;
+    if (!ready) return;
     const diagramEl = document.getElementById('diagram');
-    const errorEl = document.getElementById('error-box');
+    const errorPanel = document.getElementById('error-panel');
+    const errorText = document.getElementById('error-text');
+
+    if (!content.trim()) {
+      setStatus('ok', 'Empty file');
+      return;
+    }
+
     try {
-      status('loading', 'Rendering…');
-      const id = 'mmk8s-' + (++count);
+      setStatus('loading', 'Rendering…');
+      // Clean up any leftover mermaid error divs from DOM
+      document.querySelectorAll('[id^="dmermaid-"]').forEach(el => el.remove());
+      document.querySelectorAll('.mermaid-error').forEach(el => el.remove());
+
+      const id = 'mmk8s' + (++count);
       const { svg } = await mermaid.render(id, content);
+      lastGoodSvg = svg;
       diagramEl.innerHTML = svg;
-      errorEl.style.display = 'none';
-      status('ok', '✓ OK');
+      errorPanel.style.display = 'none';
+      setStatus('ok', '✓ OK');
     } catch (e) {
-      errorEl.style.display = 'block';
-      errorEl.textContent = e.message || String(e);
-      status('error', '✗ ' + (e.message?.split('\\n')[0] || 'Error'));
+      // Show last good diagram + error below — no bomb, no full screen takeover
+      if (lastGoodSvg) {
+        diagramEl.innerHTML = lastGoodSvg;
+      }
+      // Clean the error message — strip HTML tags mermaid injects
+      const clean = (e.message || String(e))
+        .replace(/<[^>]+>/g, '')
+        .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&')
+        .trim();
+      errorText.textContent = clean;
+      errorPanel.style.display = 'block';
+      // Short version for toolbar
+      const short = clean.split('\\n')[0].slice(0, 80);
+      setStatus('error', '✗ ' + short);
+
+      // Remove any bomb/error SVGs mermaid injected into the DOM
+      document.querySelectorAll('svg[id^="dmermaid"]').forEach(el => el.remove());
+      document.querySelectorAll('[id^="mmk8s"]').forEach(el => {
+        if (!el.closest('#diagram')) el.remove();
+      });
     }
   }
 
   window.addEventListener('message', async (e) => {
     const msg = e.data;
-
     if (msg.type === 'init') {
-      // Register icon packs sent from Node.js
-      if (msg.iconPacks && msg.iconPacks.length > 0) {
-        mermaid.registerIconPacks(
-          msg.iconPacks.map(p => ({ name: p.name, icons: p.icons }))
-        );
+      if (msg.iconPacks?.length > 0) {
+        mermaid.registerIconPacks(msg.iconPacks.map(p => ({ name: p.name, icons: p.icons })));
       }
-
-      mermaid.initialize({ startOnLoad: false, theme: msg.theme, securityLevel: 'loose' });
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: msg.theme || 'dark',
+        securityLevel: 'loose',
+        suppressErrorRendering: true
+      });
       ready = true;
-
       document.getElementById('loading').style.display = 'none';
       document.getElementById('wrapper').style.display = 'block';
-
       await render(msg.content);
     }
-
     if (msg.type === 'update') {
       await render(msg.content);
     }
