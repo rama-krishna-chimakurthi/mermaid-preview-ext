@@ -11,13 +11,6 @@ A VSCode extension that renders `.mmd` files in a live preview panel — with su
 - 🎨 Configurable Mermaid themes
 - 🪟 Side-by-side preview (just like Markdown preview)
 
-## Installation
-
-```bash
-cp -r mermaid-k8s-preview ~/.vscode/extensions/mermaid-k8s-preview
-```
-Reload VSCode (`Ctrl+Shift+P` → Developer: Reload Window).
-
 ## Usage
 
 1. Open any `.mmd` file
@@ -28,10 +21,6 @@ Reload VSCode (`Ctrl+Shift+P` → Developer: Reload Window).
 
 ```json
 "mermaidK8sPreview.iconPacks": [
-  {
-    "name": "k8s",
-    "url": "https://unpkg.com/@rama_krishna/k8s-icons/icons.json"
-  },
   {
     "name": "logos",
     "url": "https://unpkg.com/@iconify-json/logos@1/icons.json"
@@ -71,11 +60,8 @@ architecture-beta
 
 ## Available Icon Packs
 
-| Name | URL |
-|------|-----|
-| `k8s` | `https://unpkg.com/@rama_krishna/k8s-icons/icons.json` |
-| `logos` | `https://unpkg.com/@iconify-json/logos@1/icons.json` |
-| `aws` | `https://unpkg.com/@iconify-json/aws@1/icons.json` |
-| `azure` | `https://unpkg.com/@iconify-json/azure@1/icons.json` |
-| `gcp` | `https://unpkg.com/@iconify-json/gcp@1/icons.json` |
-| `mdi` | `https://unpkg.com/@iconify-json/mdi@1/icons.json` |
+| Name    | URL                                                    |
+| ------- | ------------------------------------------------------ |
+| `k8s`   | `https://unpkg.com/@rama_krishna/k8s-icons/icons.json` |
+| `logos` | `https://unpkg.com/@iconify-json/logos@1/icons.json`   |
+| `aws`   | `https://unpkg.com/@iconify-json/aws@1/icons.json`     |

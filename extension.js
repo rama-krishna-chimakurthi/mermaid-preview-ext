@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const https = require("https");
+const { URL } = require("url");
 
 const panels = new Map();
 
@@ -13,8 +14,11 @@ function fetchJson(url) {
         url,
         { headers: { "User-Agent": "vscode-mermaid-k8s-preview" } },
         (res) => {
-          if (res.statusCode === 301 || res.statusCode === 302)
-            return fetchJson(res.headers.location).then(resolve).catch(reject);
+          if (res.statusCode === 301 || res.statusCode === 302) {
+            const location = res.headers.location;
+            const absoluteUrl = new URL(location, url).href;
+            return fetchJson(absoluteUrl).then(resolve).catch(reject);
+          }
           let data = "";
           res.on("data", (chunk) => (data += chunk));
           res.on("end", () => {
@@ -107,7 +111,11 @@ async function openPreview(context, doc) {
   // Preload default icon packs (aws and k8s) from extension directory
   const defaultPacks = [
     { name: "aws", url: path.join(extensionDir, "aws-icons.json") },
-    { name: "k8s", url: path.join(extensionDir, "k8s.json") },
+    // { name: "k8s", url: path.join(extensionDir, "k8s.json") },
+    {
+      name: "k8s",
+      url: "https://unpkg.com/@rama_krishna/k8s-icons/icons.json",
+    },
   ];
 
   // Combine: settings packs come first (on top), then defaults
