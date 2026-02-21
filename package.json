@@ -1,0 +1,105 @@
+{
+  "name": "mermaid-k8s-preview",
+  "displayName": "Mermaid K8s Preview",
+  "description": "Preview .mmd files with custom icon packs (k8s, logos, aws and more)",
+  "version": "1.0.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "mermaid",
+    "k8s",
+    "kubernetes",
+    "preview",
+    "architecture"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "mermaid",
+        "aliases": [
+          "Mermaid",
+          "mermaid"
+        ],
+        "extensions": [
+          ".mmd",
+          ".mermaid"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "mermaidK8s.openPreview",
+        "title": "Mermaid K8s: Open Preview",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mermaidK8s.openPreview",
+          "when": "resourceExtname == .mmd || resourceExtname == .mermaid",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mermaidK8s.openPreview",
+          "when": "resourceExtname == .mmd || resourceExtname == .mermaid"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Mermaid K8s Preview",
+      "properties": {
+        "mermaidK8sPreview.iconPacks": {
+          "type": "array",
+          "default": [
+            {
+              "name": "k8s",
+              "url": "https://unpkg.com/@rama_krishna/k8s-icons/icons.json"
+            },
+            {
+              "name": "logos",
+              "url": "https://unpkg.com/@iconify-json/logos@1/icons.json"
+            }
+          ],
+          "description": "Icon packs to load. Each entry needs a name and url.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "mermaidK8sPreview.theme": {
+          "type": "string",
+          "default": "dark",
+          "enum": [
+            "dark",
+            "default",
+            "forest",
+            "neutral"
+          ],
+          "description": "Mermaid diagram theme"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "aws-icons": "^3.2.0"
+  }
+}
